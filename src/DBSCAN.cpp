@@ -19,9 +19,12 @@ void DBscan::init_paras(Mat& img)
             CvPoint loc_ctr = find_local_minimum(img, cvPoint(r, c));
             centers.ptr<float>(k)[0] = (float)loc_ctr.x;
             centers.ptr<float>(k)[1] = (float)loc_ctr.y;
-            centers.ptr<float>(k)[2] = (float)img.ptr<uchar>(loc_ctr.x)[3*loc_ctr.y];
-            centers.ptr<float>(k)[3] = (float)img.ptr<uchar>(loc_ctr.x)[3*loc_ctr.y + 1];
-            centers.ptr<float>(k)[4] = (float)img.ptr<uchar>(loc_ctr.x)[3*loc_ctr.y + 2];
+            centers.ptr<float>(k)[2] =
+                (float)img.ptr<uchar>(loc_ctr.x)[3*loc_ctr.y];
+            centers.ptr<float>(k)[3] =
+                (float)img.ptr<uchar>(loc_ctr.x)[3*loc_ctr.y + 1];
+            centers.ptr<float>(k)[4] =
+                (float)img.ptr<uchar>(loc_ctr.x)[3*loc_ctr.y + 2];
             centers.ptr<float>(k)[5] = 0.0;
         }
 }
@@ -92,9 +95,12 @@ void DBscan::add_neighbors(Mat &img, vector<CvPoint> &neighbors,
     }
 }
 
-void DBscan::cluster_stage(Mat &img, int cluster_num)
+void DBscan::cluster_stage(Mat &img, int step)
 {
-    ushort label = 0, adjlabel = 0;
+    this -> step = step;
+    init_paras(img);
+
+    ushort label = 0;
     vector<CvPoint> neighbors;
 
     const int lims = (img.rows * img.cols)/((int)centers.rows);
@@ -122,3 +128,47 @@ void DBscan::cluster_stage(Mat &img, int cluster_num)
     }
 
 }
+
+void DBscan::display_contours(Mat &img, CvScalar color)
+{
+    const int dx8[8] = {-1, -1, 0, 1, 1, 1, 0, -1};
+    const int dy8[8] = {0, -1, -1, -1, 0, 1, 1, 1};
+    vector<CvPoint> contours;
+    Mat istaken = Mat(img.size(), CV_8UC1, Scalar(0));
+
+    for (int r=0; r<img.rows; r++)
+        for (int c=0; c<img.cols; c++)
+        {
+            int nr_p = 0;
+
+            for(int k = 0; k < 8; k++)
+            {
+                int x = r + dx8[k];
+                int y = c + dy8[k];
+
+                if ( withInBound(x, y, img) )
+                {
+                    if (istaken.ptr<uchar>(x)[y] == 0 &&
+                            labels.ptr<ushort>(x)[y]!=labels.ptr<ushort>(r)[c])
+                        nr_p ++;
+                }
+            }
+
+            if(nr_p >= 2)
+            {
+                contours.push_back(cvPoint(r,c));
+                istaken.ptr<uchar>(r)[c] = 255;
+            }
+        }
+
+    for (vector<CvPoint>::iterator iter = contours.begin();
+            iter != contours.end(); iter ++)
+    {
+        // cvGet2D(img, iter->x, iter->y, color);
+        img.ptr<uchar>(iter->x)[3 * iter->y] = color.val[0];
+        img.ptr<uchar>(iter->x)[3 * iter->y + 1] = color.val[1];
+        img.ptr<uchar>(iter->x)[3 * iter->y + 2] = color.val[2];
+
+    }
+}
+

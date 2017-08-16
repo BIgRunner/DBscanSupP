@@ -30,7 +30,7 @@ class DBscan
         // seeds for segmentation
         Mat centers;
 
-        double step;
+        int  step;
 
         // thresthold for segmentation
         double thresthold;
@@ -46,9 +46,11 @@ class DBscan
 
     public:
 
-        void cluster_stage(Mat &image, int cluster_num);
+        void cluster_stage(Mat &image, int step);
 
         void merge_stage(Mat &img);
+
+        void display_contours(Mat &img, CvScalar);
 };
 
 #endif
