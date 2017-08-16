@@ -1,0 +1,124 @@
+#include "DBSCAN.hpp"
+
+// In this file, x is alone the rows and y the columns;
+
+const int THRESHOLD = 400;
+const double ALPHA = 0.62;
+const double BETA = 0.38;
+
+void DBscan::init_paras(Mat& img)
+{
+    labels = Mat(img.size(), CV_16UC1, Scalar(65535));
+    centers = Mat(((img.rows-step/2-1)/step+1) * ((img.cols-step/2-1)/step+1),
+                6, CV_32FC1, Scalar(0));
+
+    int k = 0;
+    for (int r = step/2; r < img.rows; r += step)
+        for (int c = step/2; c < img.cols; c += step)
+        {
+            CvPoint loc_ctr = find_local_minimum(img, cvPoint(r, c));
+            centers.ptr<float>(k)[0] = (float)loc_ctr.x;
+            centers.ptr<float>(k)[1] = (float)loc_ctr.y;
+            centers.ptr<float>(k)[2] = (float)img.ptr<uchar>(loc_ctr.x)[3*loc_ctr.y];
+            centers.ptr<float>(k)[3] = (float)img.ptr<uchar>(loc_ctr.x)[3*loc_ctr.y + 1];
+            centers.ptr<float>(k)[4] = (float)img.ptr<uchar>(loc_ctr.x)[3*loc_ctr.y + 2];
+            centers.ptr<float>(k)[5] = 0.0;
+        }
+}
+
+double compute_dist(Mat &img, CvPoint &p1, CvPoint &p2)
+{
+    double d =
+        pow(img.ptr<uchar>(p1.x)[3 * p1.y]
+                - img.ptr<char>(p2.x)[3 * p2.y], 2)
+        + pow(img.ptr<uchar>(p1.x)[3 * p1.y + 1]
+                - img.ptr<uchar>(p2.x)[3 * p2.y + 1], 2)
+        + pow(img.ptr<uchar>(p1.x)[3 * p1.y + 2]
+                - img.ptr<uchar>(p2.x)[3 * p2.y + 2], 2);
+    return d;
+}
+
+bool withInBound(int x, int y, Mat& img)
+{
+    return x >= 0 && x < img.rows && y >= 0 && y < img.cols;
+}
+
+CvPoint DBscan::find_local_minimum(Mat &img, CvPoint center)
+{
+    double min_grad = FLT_MAX;
+    CvPoint loc_min = cvPoint(center.x, center.y);
+
+    for(int r = center.x-1; r < center.x+2; r++)
+        for(int c = center.y-1; c < center.y+2; c++)
+        {
+            if(withInBound(r, c+1, img) && withInBound(r+1, c, img))
+            {
+                double l1 = img.ptr<uchar>(r+1)[3*c];
+                double l2 = img.ptr<uchar>(r)[3*(c+1)];
+                double l3 = img.ptr<uchar>(r)[3*c];
+
+                double grad = pow(l1-l3, 2) + pow(l2-l3, 2);
+
+                if(grad < min_grad)
+                {
+                    min_grad = grad;
+                    loc_min.x = r;
+                    loc_min.y = c;
+                }
+            }
+        }
+
+    return loc_min;
+}
+
+void DBscan::add_neighbors(Mat &img, vector<CvPoint> &neighbors,
+        CvPoint &center, CvPoint &point, int label)
+{
+    const int dx4[4] = {-1, 0, 1, 0};
+    const int dy4[4] = {0, -1, 0, 1};
+    for(int i = 0; i < 4; i ++)
+    {
+        CvPoint temp = cvPoint(point.x + dx4[i], point.y + dy4[i]);
+        if(labels.ptr<ushort>(temp.x)[temp.y] != 65535)
+        {
+            double dist = ALPHA * compute_dist(img, center, temp)
+                + BETA * compute_dist(img, point, temp);
+            if(dist < THRESHOLD)
+            {
+                neighbors.push_back(temp);
+                labels.ptr<ushort>(temp.x)[temp.y] = label;
+            }
+        }
+    }
+}
+
+void DBscan::cluster_stage(Mat &img, int cluster_num)
+{
+    ushort label = 0, adjlabel = 0;
+    vector<CvPoint> neighbors;
+
+    const int lims = (img.rows * img.cols)/((int)centers.rows);
+    const int dx4[4] = {-1, 0, 1, 0};
+    const int dy4[4] = {0, -1, 0, 1};
+
+    for(int i=0; i < centers.rows; i ++)
+    {
+        CvPoint center = cvPoint(labels.ptr<ushort>(i)[0],
+                labels.ptr<ushort>(i)[0]);
+
+        if(labels.ptr<ushort>(center.x)[center.y] != 65535)
+            continue;
+
+        labels.ptr<ushort>(center.x)[center.y] = label;
+        add_neighbors(img, neighbors, center, center, label);
+        for(vector<CvPoint>::iterator it = neighbors.begin();
+                it != neighbors.end() && neighbors.size() < 4*lims; it++)
+        {
+            add_neighbors(img, neighbors, center, *it, (int)label);
+        }
+
+        centers.ptr<float>(i)[5] = neighbors.size() + 1;
+        label++;
+    }
+
+}

@@ -1,0 +1,5 @@
+# FIND_PACKAGE(OpenCV 2.4 REQUIRED)
+# ADD_EXECUTABLE(newfile newfile.cpp)
+# TARGET_LINK_LIBRARIES(newfile thatlib ${OpenCV_LIBS})
+# ADD_LIBRARY(newlibfile newfile.cpp)
+# TARGET_LINK_LIBRARIES(newfile thatlib)
