@@ -1,4 +1,4 @@
 # build/ directory
 build/*
-
-# 
+lib/*
+bin/*
