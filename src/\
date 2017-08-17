@@ -26,16 +26,15 @@ void DBscan::init_paras(Mat& img)
             centers.ptr<float>(k)[4] =
                 (float)img.ptr<uchar>(loc_ctr.x)[3*loc_ctr.y + 2];
             centers.ptr<float>(k)[5] = 0.0;
-            k++;
         }
-    // cout << "initialization finished" << endl;
+    cout << "initialization finished" << endl;
 }
 
 double DBscan::compute_dist(Mat &img, CvPoint &p1, CvPoint &p2)
 {
     double d =
         pow(img.ptr<uchar>(p1.x)[3 * p1.y]
-                - img.ptr<uchar>(p2.x)[3 * p2.y], 2)
+                - img.ptr<char>(p2.x)[3 * p2.y], 2)
         + pow(img.ptr<uchar>(p1.x)[3 * p1.y + 1]
                 - img.ptr<uchar>(p2.x)[3 * p2.y + 1], 2)
         + pow(img.ptr<uchar>(p1.x)[3 * p1.y + 2]
@@ -84,8 +83,7 @@ void DBscan::add_neighbors(Mat &img, vector<CvPoint> &neighbors,
     for(int i = 0; i < 4; i ++)
     {
         CvPoint temp = cvPoint(point.x + dx4[i], point.y + dy4[i]);
-        if(withInBound(temp.x, temp.y, img) &&
-                labels.ptr<ushort>(temp.x)[temp.y] == 65535)
+        if(labels.ptr<ushort>(temp.x)[temp.y] != 65535)
         {
             double dist = ALPHA * compute_dist(img, center, temp)
                 + BETA * compute_dist(img, point, temp);
@@ -109,14 +107,12 @@ void DBscan::cluster_stage(Mat &img, int step)
     const int dx4[4] = {-1, 0, 1, 0};
     const int dy4[4] = {0, -1, 0, 1};
 
-    // cout << "here" << endl;
+    cout << "here" << endl;
 
     for(int i=0; i < centers.rows; i ++)
     {
-        CvPoint center = cvPoint(centers.ptr<float>(i)[0],
-                centers.ptr<float>(i)[1]);
-
-        // cout << "i: " << i << endl;
+        CvPoint center = cvPoint(labels.ptr<ushort>(i)[0],
+                labels.ptr<ushort>(i)[0]);
 
         if(labels.ptr<ushort>(center.x)[center.y] != 65535)
             continue;
@@ -126,24 +122,16 @@ void DBscan::cluster_stage(Mat &img, int step)
         neighbors.push_back(center);
         int count = 1;
 
-        for(int m =0; m < count && count < 4*lims; m++)
+        for(int m =0; m < count; m++)
         {
-            // cout << neighbors[m].x << endl;
-            // cout << neighbors[m].y << endl;
-            // // cout << neighbors[m].x << endl;
             add_neighbors(img, neighbors, center, neighbors[m], (int)label);
-            // cout<<"m: " << m << endl;
             count = neighbors.size();
-            // cout << "count: " << count << endl;
         }
-        // cout << "his" <<endl;
 
-        centers.ptr<float>(i)[5] = neighbors.size();
-        // cout <<" 3"<< endl;
+        centers.ptr<float>(i)[5] = neighbors.size() + 1;
         label++;
-        // cout << neighbors.size() << endl;
     }
-    // cout << "cluster finished" << endl;
+    cout << "cluster finished" << endl;
 
 }
 
