@@ -31,7 +31,7 @@ void DBscan::init_paras(Mat& img)
     // cout << "initialization finished" << endl;
 }
 
-double DBscan::compute_dist(Mat &img, CvPoint &p1, CvPoint &p2)
+double DBscan::cmp_pix_dist(Mat &img, CvPoint &p1, CvPoint &p2)
 {
     double d =
         pow(img.ptr<uchar>(p1.x)[3 * p1.y]
@@ -41,6 +41,23 @@ double DBscan::compute_dist(Mat &img, CvPoint &p1, CvPoint &p2)
         + pow(img.ptr<uchar>(p1.x)[3 * p1.y + 2]
                 - img.ptr<uchar>(p2.x)[3 * p2.y + 2], 2);
     return d;
+}
+
+double DBscan::cmp_lb_dist(int label_a, int label_b)
+{
+    double dist_xy =
+        pow(centers.ptr<float>(label_a)[0]
+                - centers.ptr<float>(label_b)[0], 2)
+        + pow(centers.ptr<float>(label_a)[0]
+                - centers.ptr<float>(label_b)[1], 2);
+    double dist_rgb =
+        pow(centers.ptr<float>(label_a)[2]
+                - centers.ptr<float>(label_b)[2], 2)
+        + pow(centers.ptr<float>(label_a)[3]
+                - centers.ptr<float>(label_b)[3], 2)
+        + pow(centers.ptr<float>(label_a)[4]
+                - centers.ptr<float>(label_b)[4], 2);
+    return dist_rgb + 2*dist_xy;
 }
 
 bool withInBound(int x, int y, Mat& img)
@@ -87,13 +104,38 @@ void DBscan::add_neighbors(Mat &img, vector<CvPoint> &neighbors,
         if(withInBound(temp.x, temp.y, img) &&
                 labels.ptr<ushort>(temp.x)[temp.y] == 65535)
         {
-            double dist = ALPHA * compute_dist(img, center, temp)
-                + BETA * compute_dist(img, point, temp);
+            double dist = ALPHA * cmp_pix_dist(img, center, temp)
+                + BETA * cmp_pix_dist(img, point, temp);
             if(dist < THRESHOLD)
             {
                 neighbors.push_back(temp);
                 labels.ptr<ushort>(temp.x)[temp.y] = label;
+                centers.ptr<float>(label)[0] += temp.x;
+                centers.ptr<float>(label)[1] += temp.y;
+                centers.ptr<float>(label)[2] +=
+                    img.ptr<uchar>(temp.x)[3 * temp.y];
+                centers.ptr<float>(label)[3] +=
+                    img.ptr<uchar>(temp.x)[3 * temp.y + 1];
+                centers.ptr<float>(label)[4] +=
+                    img.ptr<uchar>(temp.x)[3 * temp.y + 2];
             }
+        }
+    }
+}
+
+void DBscan::add_unlabeled(Mat &img, vector<CvPoint> &neighbors,
+        CvPoint &point, int label)
+{
+    const int dx4[4] = {-1, 0, 1, 0};
+    const int dy4[4] = {0, -1, 0, 1};
+    for(int i = 0; i < 4; i++)
+    {
+        CvPoint temp = cvPoint(point.x + dx4[i], point.y + dy4[i]);
+        if(withInBound(temp.x, temp.y, img) &&
+                labels.ptr<ushort>(temp.x)[temp.y] == 65535)
+        {
+            neighbors.push_back(temp);
+            labels.ptr<ushort>(temp.x)[temp.y] = label;
         }
     }
 }
@@ -103,7 +145,7 @@ void DBscan::cluster_stage(Mat &img, int step)
     this -> step = step;
     init_paras(img);
 
-    ushort label = 0;
+    // ushort label = 0;
 
     const int lims = (img.rows * img.cols)/((int)centers.rows);
     const int dx4[4] = {-1, 0, 1, 0};
@@ -121,7 +163,7 @@ void DBscan::cluster_stage(Mat &img, int step)
         if(labels.ptr<ushort>(center.x)[center.y] != 65535)
             continue;
 
-        labels.ptr<ushort>(center.x)[center.y] = label;
+        labels.ptr<ushort>(center.x)[center.y] = i;
         vector<CvPoint> neighbors;
         neighbors.push_back(center);
         int count = 1;
@@ -131,7 +173,7 @@ void DBscan::cluster_stage(Mat &img, int step)
             // cout << neighbors[m].x << endl;
             // cout << neighbors[m].y << endl;
             // // cout << neighbors[m].x << endl;
-            add_neighbors(img, neighbors, center, neighbors[m], (int)label);
+            add_neighbors(img, neighbors, center, neighbors[m], i);
             // cout<<"m: " << m << endl;
             count = neighbors.size();
             // cout << "count: " << count << endl;
@@ -139,8 +181,26 @@ void DBscan::cluster_stage(Mat &img, int step)
         // cout << "his" <<endl;
 
         centers.ptr<float>(i)[5] = neighbors.size();
+        centers.ptr<float>(i)[0] /= centers.ptr<float>(i)[5];
+        centers.ptr<float>(i)[1] /= centers.ptr<float>(i)[5];
+        centers.ptr<float>(i)[2] /= centers.ptr<float>(i)[5];
+        centers.ptr<float>(i)[3] /= centers.ptr<float>(i)[5];
+        centers.ptr<float>(i)[4] /= centers.ptr<float>(i)[5];
+
+        // cout << "label " << i << endl;
+        // cout << "pixels: " << centers.ptr<float>(i)[5] << endl;
+        // cout << "x: " << centers.ptr<float>(i)[0] << endl;
+        // cout << "y: " << centers.ptr<float>(i)[1] << endl;
+        // cout << "r: " << centers.ptr<float>(i)[2] << endl;
+        // cout << "g: " << centers.ptr<float>(i)[3] << endl;
+        // cout << "b: " << centers.ptr<float>(i)[4] << endl;
+        cout << i << "\t" << centers.ptr<float>(i)[0] <<
+            "\t" << centers.ptr<float>(i)[1] <<
+            "\t" << centers.ptr<float>(i)[2] <<
+            "\t" << centers.ptr<float>(i)[3] <<
+            "\t" << centers.ptr<float>(i)[4] <<
+            "\t" << centers.ptr<float>(i)[5] << endl;
         // cout <<" 3"<< endl;
-        label++;
         // cout << neighbors.size() << endl;
     }
     // cout << "cluster finished" << endl;
