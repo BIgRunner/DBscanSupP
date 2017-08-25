@@ -13,12 +13,13 @@
 using namespace cv;
 using namespace std;
 
-struct center
+struct Center
 {
-    int lable;
-    double row, col;
+    ushort label;
+    double x, y;
     double r, g, b;
     int count;
+    vector<CvPoint> pixels;
 };
 
 class DBscan
@@ -28,14 +29,19 @@ class DBscan
         Mat labels;
 
         // seeds for segmentation
-        Mat centers;
+        // Mat centers;
+        vector<Center> centers;
 
         int  step;
+
+        map<ushort, set<ushort> > ngb_matrix;
 
         // thresthold for segmentation
         double thresthold;
 
-        double compute_dist(Mat &img, CvPoint &p1, CvPoint &p2);
+        double cmp_pix_dist(Mat &img, CvPoint &p1, CvPoint &p2);
+
+        double cmp_lb_dist(int label_a, int label_b);
 
         void init_paras(Mat &img);
 
@@ -44,9 +50,14 @@ class DBscan
         void add_neighbors(Mat &img, vector<CvPoint> &neighbors,
                 CvPoint &center, CvPoint &point, int label);
 
+        void add_unlabeled(Mat &img, vector<CvPoint> &neighbors,
+                CvPoint &point, int label);
+
     public:
 
         void cluster_stage(Mat &image, int step);
+
+        void refine_stage(Mat &image);
 
         void merge_stage(Mat &img);
 
