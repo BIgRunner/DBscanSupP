@@ -57,7 +57,7 @@ class DBscan
 
         void cluster_stage(Mat &image, int step);
 
-        void refine_stage(Mat &image);
+        void refine_stage(Mat &image, int step);
 
         void merge_stage(Mat &img);
 
