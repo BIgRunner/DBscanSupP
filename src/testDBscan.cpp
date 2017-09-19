@@ -18,7 +18,7 @@ int main(int argc, char **argv)
 
     DBscan dbscan;
     dbscan.cluster_stage(image, step);
-    dbscan.refine_stage(image);
+    dbscan.refine_stage(image, step);
     dbscan.merge_stage(image);
     dbscan.display_contours(image, CV_RGB(255, 0, 0));
     imshow("image",image);

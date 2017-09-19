@@ -156,6 +156,7 @@ void DBscan::add_unlabeled(Mat &img, vector<CvPoint> &neighbors,
             }
         }
     }
+    // cout << "2.2" << endl;
 }
 
 void DBscan::cluster_stage(Mat &img, int step)
@@ -226,9 +227,10 @@ void DBscan::cluster_stage(Mat &img, int step)
 
 }
 
-void DBscan::refine_stage(Mat &img)
+void DBscan::refine_stage(Mat &img, int step)
 {
     int label = centers.size();
+    int up_lims = 4 * step * step;
     for(int r = 0; r < img.rows; r++ )
         for(int c = 0; c < img.cols; c++ )
         {
@@ -248,12 +250,16 @@ void DBscan::refine_stage(Mat &img)
             vector<CvPoint> neighbors;
             neighbors.push_back(seed);
             int count = 1;
+            // cout << "2" << endl;
 
-            for(int m = 0; m < count; m ++ )
+            for(int m = 0; m < count && count < up_lims; m ++ )
             {
                 add_unlabeled(img, neighbors, neighbors[m], label);
+                // cout << "2.3" << endl;
                 count = neighbors.size();
+                // cout << "2.4" << endl;
             }
+            // cout << "3" << endl;
 
             centers[label].count = neighbors.size();
             centers[label].x /= centers[label].count;
